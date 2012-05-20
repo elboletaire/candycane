@@ -385,6 +385,7 @@ class ProjectsController extends AppController {
 
 		$fields = array('name', 'description', 'homepage', 'is_public');
 		$this->data['Tracker']['Tracker'] = array_filter($this->data['Project']['Tracker']);
+		$this->data['CustomField']['CustomField'] = array_filter($this->data['Project']['issue_custom_field_ids']);
 		if ($this->Project->save($this->data, true, $fields)) {
 			$this->Session->setFlash(__('Successful update.', true), 'default', array('class' => 'flash notice'));
 			$this->redirect(array('action' => 'settings', 'id' => $this->params['project_id']));
@@ -442,9 +443,14 @@ class ProjectsController extends AppController {
  * @return void
  */
 	public function destroy() {
+		$subprojects = $this->Project->findSubprojects($this->_project['Project']['id']);
+		$this->set('subprojects',$subprojects);
 		if ($this->RequestHandler->isPost()) {
 			if ($this->data['Project']['confirm'] == 1) {
 				$this->Project->del($this->data['Project']['id']);
+				foreach ($subprojects as $row) {
+					$this->Project->del($row['Project']['id']);
+				}
 				$this->redirect(array('controller'=>'admin', 'action'=>'projects'));
 			} else {
 				// Nothing
@@ -884,7 +890,9 @@ class ProjectsController extends AppController {
     $root_project_inputs = $this->Project->find('all', array('conditions'=>array($this->Project->name.'.parent_id'=>NULL, $this->Project->name.'.status'=>PROJECT_STATUS_ACTIVE), 'order'=>$this->Project->name.'.name'));
     $root_projects = array(null=>'');
     foreach($root_project_inputs as $project) {
-      $root_projects[$project['Project']['id']] = $project['Project']['name'];
+      // Check it's not the project itself
+      if($project['Project']['id'] != $this->_project['Project']['id'])
+      	$root_projects[$project['Project']['id']] = $project['Project']['name'];
     }
     $this->set('root_projects', $root_projects);
 

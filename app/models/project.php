@@ -10,6 +10,8 @@ define('PROJECT_ARCHIVED', 9);
  */
 class Project extends AppModel {
 
+	const STATUS_ARCHIVED = 9;
+
 /**
  * Model name
  *
@@ -86,6 +88,9 @@ class Project extends AppModel {
 		'User' => array(
 			'with' => 'Member',
 		),
+		'CustomField' => array(
+			'with' => 'CustomFieldsProject'
+		)
 	);
 
 #protected

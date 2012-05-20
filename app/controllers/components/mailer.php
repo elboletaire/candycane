@@ -30,6 +30,23 @@ class MailerComponent extends ActionMailer {
       $this->setHeader('From', $this->controller->Setting->mail_from);
       $this->set('footer',$this->controller->Setting->emails_footer);
     }
+	
+	public function setRecipients($emails) {
+		if (
+			isset($this->controller->current_user['UserPreference']['pref']['no_self_notified']) &&
+			$this->controller->current_user['UserPreference']['pref']['no_self_notified']
+		) {
+			$new_emails = array();
+			foreach( $emails as $k => $v ) {
+				if ($this->controller->current_user['mail'] == $v) {
+					continue;
+				}
+				$new_emails[$k] = $v;
+			}
+			$emails = $new_emails;
+		}
+		parent::setRecipients($emails);
+	}
     function issue_add($Issue) {
     #    redmine_headers 'Project' => issue.project.identifier,
     #                    'Issue-Id' => issue.id,
@@ -87,6 +104,54 @@ class MailerComponent extends ActionMailer {
         true
     ));
     }
+
+	public function register($token, $user) {
+		#    set_language_if_valid(token.user.language)
+		$this->addRecipient($user['User']['mail']);
+		$this->setSubject(sprintf(
+			__('Your %s account activation',true),
+			$this->controller->Setting->app_title
+		));
+		$this->set('token', $token);
+		$this->set('url',Router::url(
+			array(
+				'controller' => 'account',
+				'action' => 'activate',
+				'?' => array(
+					'token' => $token['value']
+				)
+			),
+			true
+		));		
+	}
+
+	public function account_activation_request($user, $User) {
+
+		//Send the email to all active administrators
+		$recipients = $User->find('list',array(
+			'fields' => array('id','mail'),
+			'conditions' => array(
+				'User.admin' => true,
+				'User.status' => 1, //active
+			)
+		));
+		$this->setRecipients($recipients);
+		$this->setSubject(sprintf(
+			__('%s account activation request',true),
+			$this->controller->Setting->app_title
+		));
+		$this->set('user',$user);
+		$this->set('url',Router::url(
+			array(
+				'controller' => 'users',
+				'action' => 'index',
+				'?' => array(
+					'status' => 2
+				)
+			),
+			true
+		));		
+	}
 
     function lost_password($token, $user)
     {
@@ -211,22 +276,6 @@ class MailerComponent extends ActionMailer {
 #    body :user => user,
 #         :password => password,
 #         :login_url => url_for(:controller => 'account', :action => 'login')
-#  end
-#
-#  def account_activation_request(user)
-#    # Send the email to all active administrators
-#    recipients User.active.find(:all, :conditions => {:admin => true}).collect { |u| u.mail }.compact
-#    subject l(:mail_subject_account_activation_request, Setting.app_title)
-#    body :user => user,
-#         :url => url_for(:controller => 'users', :action => 'index', :status => User::STATUS_REGISTERED, :sort_key => 'created_on', :sort_order => 'desc')
-#  end
-#
-#  def register(token)
-#    set_language_if_valid(token.user.language)
-#    recipients token.user.mail
-#    subject l(:mail_subject_register, Setting.app_title)
-#    body :token => token,
-#         :url => url_for(:controller => 'account', :action => 'activate', :token => token.value)
 #  end
 #
 #
